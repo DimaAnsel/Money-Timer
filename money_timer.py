@@ -1,6 +1,7 @@
 from tkinter import *
 from time import *
 from clockface import ClockFace
+from calendar import Calendar
 import json
 
 
@@ -865,9 +866,11 @@ def main():
   root.title("Money Timer")
   root.lift()
   cf = ClockFace(root, size = 100, smooth = True, bg = PhotoImage(file = "art.gif"), handcolor = "#000000", markcolor = "#000000")
-  cf.pack(side = "left")
+  cf.grid(row = 0, column = 0)
   mt = MoneyTimer(root)
-  mt.pack(side = "left")
+  mt.grid(row = 0, column = 1)
+  cal = Calendar(root)
+  cal.grid(row = 1, column = 0, columnspan = 2)
 
   root.mainloop()
 

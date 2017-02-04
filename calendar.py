@@ -71,13 +71,13 @@ class Calendar(Frame):
     else:
       self._year = year
     if month == None:
-      self._month = now.tm_mon
+      self._month = now.tm_mon - 1
     else:
       self._month = month
     self._currDay = None
 
     self._create_widgets()
-    self._update_month_view(0)
+    self._update_month_view(self._month)
     self._show_month_view()
 
   def _create_widgets(self):

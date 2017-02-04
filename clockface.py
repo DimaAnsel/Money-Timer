@@ -50,6 +50,11 @@ class ClockFace:
                     "wedge_size" : 0.5,
                     "update_rate" : 10}
 
+  # config window configurability
+  CONFIG_BASIC = "CONFIG_BASIC" # ["background", "handcolor", "markcolor", "marks", "size"]
+  CONFIG_ADVANCED = "CONFIG_ADVANCED" # CONFIG_BASIC + ["smooth", "wedge_size", "update_rate", "shape"]
+  CONFIG_CUSTOM = "CONFIG_CUSTOM"
+
   # default colors for non-configurable parameters
   BG_COLOR_WITH_IMAGE = "#000000"
   DEFAULT_WEDGE_COLOR = "#FFDD00"
@@ -62,6 +67,132 @@ class ClockFace:
 
   _FONTS = {ARABIC: "Helvetica",
             ROMAN:  "Times New Roman"}
+
+  _MARK_OPTIONS = [("Ticks",           TICKS),
+                   ("Arabic Numerals", ARABIC),
+                   ("Roman Numerals",  ROMAN)]
+
+
+  ################
+  # ConfigWindow: Popout window that allows configuration of a ClockFace.
+  #   Members:
+  #     <members>
+  #   Methods:
+  #     <methods>
+  class ConfigWindow(Toplevel):
+
+    def __init__(self, parent, options, customOptions = None):
+      super().__init__(parent._canvas)
+      self._parent = parent
+      # initialize config
+      self._config = {}
+      for k, v in self._parent._configVars.items():
+        self._config[k] = v
+      # create GUI
+      self._create_widgets(options, customOptions)
+
+    def _create_widgets(self, options, customOptions):
+      ####
+      # CONFIG_BASIC
+      if (options in (ClockFace.CONFIG_BASIC, ClockFace.CONFIG_ADVANCED) or
+          options == ClockFace.CONFIG_CUSTOM and "size" in customOptions):
+        self._sizeLabel = Label(self, text = "Size:")
+        self._sizeEntry = Entry(self, width = 10) # TODO: don't hardcode
+        self._sizeLabel.grid(row = 0, column = 0, sticky = W)
+        self._sizeEntry.grid(row = 0, column = 1, sticky = W+E)
+
+      if (options in (ClockFace.CONFIG_BASIC, ClockFace.CONFIG_ADVANCED) or
+          options == ClockFace.CONFIG_CUSTOM and ("background" in customOptions or
+                                                  "bg" in customOptions)):
+        self._bgLabel = Label(self, text = "Background:")
+        self._bgEntry = Entry(self, width = 10)
+        self._bgLabel.grid(row = 1, column = 0, sticky = W)
+        self._bgEntry.grid(row = 1, column = 1, sticky = W+E)
+
+      if (options in (ClockFace.CONFIG_BASIC, ClockFace.CONFIG_ADVANCED) or
+          options == ClockFace.CONFIG_CUSTOM and "handcolor" in customOptions):
+        self._handcolorLabel = Label(self, text = "Hand color:")
+        self._handcolorEntry = Entry(self, width = 10) # TODO: don't hardcode
+        self._handcolorLabel.grid(row = 2, column = 0, sticky = W)
+        self._handcolorEntry.grid(row = 2, column = 1, sticky = W+E)
+
+      if (options in (ClockFace.CONFIG_BASIC, ClockFace.CONFIG_ADVANCED) or
+          options == ClockFace.CONFIG_CUSTOM and "markcolor" in customOptions):
+        self._markcolorLabel = Label(self, text = "Mark color:")
+        self._markcolorEntry = Entry(self, width = 10) # TODO: don't hardcode
+        self._markcolorLabel.grid(row = 3, column = 0, sticky = W)
+        self._markcolorEntry.grid(row = 3, column = 1, sticky = W+E)
+
+      if (options in (ClockFace.CONFIG_BASIC, ClockFace.CONFIG_ADVANCED) or
+          options == ClockFace.CONFIG_CUSTOM and "marks" in customOptions):
+        self._marksLabel = Label(self, text = "Marks:")
+        self._marksVar = StringVar()
+        self._marksVar.set(self._config["marks"])
+        self._marksFrame = Frame(self)
+        self._marksButtons = []
+        for label, val in ClockFace._MARK_OPTIONS:
+          b = Radiobutton(self._marksFrame,
+                          text = label,
+                          variable = self._marksVar,
+                          value = val)
+          self._marksButtons.append(b)
+        for i in range(len(self._marksButtons)):
+          self._marksButtons[i].grid(row = i, column = 0, sticky = W)
+        self._marksLabel.grid(row = 4, column = 0, sticky = W)
+        self._marksFrame.grid(row = 5, column = 0, columnspan = 2, sticky = W+E)
+
+      ####
+      # CONFIG_ADVANCED
+      if (options == ClockFace.CONFIG_ADVANCED or
+          options == ClockFace.CONFIG_CUSTOM and "smooth" in customOptions):
+        pass # TODO: implement smooth
+
+      if (options == ClockFace.CONFIG_ADVANCED or
+          options == ClockFace.CONFIG_CUSTOM and "wedge_size" in customOptions):
+        pass # TODO: implement wedge_size
+
+      if (options == ClockFace.CONFIG_ADVANCED or
+          options == ClockFace.CONFIG_CUSTOM and "update_rate" in customOptions):
+        pass # TODO: implement update_rate
+
+      if (options == ClockFace.CONFIG_ADVANCED or
+          options == ClockFace.CONFIG_CUSTOM and "shape" in customOptions):
+        pass # TODO: implement shape
+
+      # always present
+      self._baseFrame = Frame(self)
+      self._doneButton = Button(self._baseFrame,
+                                text = "Done",
+                                command = self._on_doneButton_click)
+      self._cancelButton = Button(self._baseFrame,
+                                  text = "Cancel",
+                                  command = self.destroy)
+      self._doneButton.grid(row = 0, column = 0)
+      self._cancelButton.grid(row = 0, column = 1)
+      self._baseFrame.grid(row = 10, column = 0, columnspan = 10)
+
+    def _validate_all(self):
+      return True
+
+    def _update_all(self):
+      if self._validate_all():
+        self._config["marks"] = self._marksVar.get()
+        return True
+
+
+    def _on_doneButton_click(self):
+      if self._update_all():
+        print(self._config)
+        self._parent._on_configWindow_done()
+        self.destroy()
+      else:
+        pass # TODO: notify of failure
+
+    def destroy(self):
+      self._parent._configWindow = None
+      super().destroy()
+  #
+  ################
 
   ########
   # Initializes canvas, sets config if given as parameters.
@@ -86,6 +217,9 @@ class ClockFace:
     self._bgImgId = None
     self._ms = 0
 
+    # refs to sub-windows
+    self._configWindow = None
+
     self.config(**kwargs) # now config based on passed variables
 
     self._init_face()
@@ -94,6 +228,27 @@ class ClockFace:
   ################
   # Configuration
   ################
+
+  def open_config_window(self, options = CONFIG_BASIC, customOptions = []):
+    if options not in (ClockFace.CONFIG_BASIC, ClockFace.CONFIG_ADVANCED, ClockFace.CONFIG_BASIC):
+      raise ValueError("Option '{}' not recognized for config window.")
+    if self._configWindow == None:
+      self._configWindow = ClockFace.ConfigWindow(self, options, customOptions)
+    else:
+      self._configWindow.lift()
+
+  def _on_configWindow_done(self):
+    newSettings = self._configWindow._config
+    toDel = []
+    for k in newSettings.keys():
+      if self._configVars[k] == newSettings[k]:
+        toDel.append(k)
+    for k in toDel:
+      del newSettings[k]
+
+    print("{} changed.".format(len(newSettings.keys())))
+
+    self.config(**newSettings)
 
   ########
   # Alternate name for config method.
@@ -128,6 +283,7 @@ class ClockFace:
           self._bgImgId = self._canvas.create_image(self._mid,
                                                     self._mid,
                                                     image = self._bgImg)
+          self._configVars["background"] = val
           self._canvas.tag_lower(self._bgImgId)
         else:
           raise TypeError("Option 'background' must be of type 'str' or 'Tk.PhotoImage'.")
@@ -565,5 +721,9 @@ if __name__ == "__main__":
   for i in range(5):
     minis.append(ClockFace(miniFrame, size = 150 + 15 * i, smooth = True, update_rate = i*2 + 1, marks = ClockFace.ROMAN))
     minis[i].grid(row = i % 3, column = i // 3)
+
+
+  testConfigButton = Button(root, text = "Config", command = cf.open_config_window)
+  testConfigButton.grid(row = 10, column = 0)
 
   root.mainloop()

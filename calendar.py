@@ -33,8 +33,9 @@ class Calendar(Frame):
                      "五月", "六月", "七月", "八月",
                      "九月", "十月", "十一月", "十二月"]}
   DAY_MAP = {"en":["Sun", "Mon", "Tues", "Wed", "Thur", "Fri", "Sat"],
-             "jp":["日曜", "月曜", "火曜", "水曜", "木曜", "金曜", "土曜"]}
+             "jp":["日",  "月",   "火",   "水",  "木",   "金",   "土"]}
 
+  DAY_ACTION_BG = "#CCCCFF"
   DAY_BG = "#FFFFFF"
   TODAY_BG = "#DDDDDD"
 
@@ -75,6 +76,7 @@ class Calendar(Frame):
     else:
       self._month = month
     self._currDay = None
+    self._bindings = {}
 
     self._create_widgets()
     self._update_month_view(self._month)
@@ -152,7 +154,8 @@ class Calendar(Frame):
                                                                    Calendar.MONTH_MAP[self._lang][month])
     self._monthView.monthLabel.config(text = titleStr)
     for item in self._monthView.dayLabels:
-      item.config(text = "")
+      item.config(text = "", bg = Calendar.DAY_BG)
+      item.unbind("<Button-1>")
       # item.grid_forget()
     for i in range(numDays):
       loc = firstDay + i
@@ -160,6 +163,28 @@ class Calendar(Frame):
       if self._year == now.tm_year and self._month == now.tm_mon - 1 and i == now.tm_mday - 1:
         self._monthView.dayLabels[loc].config(bg = Calendar.TODAY_BG)
         self._currDay = loc # track currently highlighted day
+
+    self._bind_days()
+
+  def _bind_days(self):
+    firstDay = self._determine_first_day_of_month(self._year, self._month)
+    for date, action in self._bindings.items():
+      if date[0] == self._year and date[1] == self._month:
+        loc = firstDay + date[2] - 1
+        self._monthView.dayLabels[loc].config(bg = Calendar.DAY_ACTION_BG)
+        self._monthView.dayLabels[loc].bind("<Button-1>", lambda e, y = date[0], m = date[1], d = date[2]: action(year = y, month = m, day = d))
+
+  ########
+  # Adds an action to call when given day is clicked.
+  def add_day_action(self, year, month, day, action = None):
+    if action != None:
+      self._bindings[(year, month, day)] = action
+      self._update_month_view(self._month)
+
+  def remove_day_action(self, year, month, day):
+    if (year, month, day) in self._bindings.keys():
+      del self._bindings[(year, month, day)]
+      self._update_month_view(self._month)
 
   def _determine_first_day_of_year(self, year):
     return (1 + 5 * ((year - 1) % 4) + 4 * ((year - 1) % 100) + 6 * ((year - 1) % 400)) % 7
@@ -210,7 +235,6 @@ class Calendar(Frame):
 # Calendar
 ################
 
-
 #######################################################
 # testing code below
 def swap_lang(cal):
@@ -226,5 +250,9 @@ if __name__ == "__main__":
   c.pack()
   b = Button(root, text = "Swap lang", command = lambda: swap_lang(c))
   b.pack()
+
+  now = localtime()
+  for d in range(1,8):
+    c.add_day_action(year = now.tm_year, month = now.tm_mon - 1, day = d, action = lambda *args: swap_lang(c))
 
   root.mainloop()

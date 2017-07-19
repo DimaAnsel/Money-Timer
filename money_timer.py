@@ -490,44 +490,53 @@ Mateo Zlatar\
     def __init__(self, root):
       Toplevel.__init__(self, root)
       self.title("History [Money Timer]")
-      self.scrollbar = Scrollbar(self)
-      self.scrollbar.pack(side = "right", fill = Y)
-      self.text = Text(self,
-                       width = 50,
-                       yscrollcommand = self.scrollbar.set)
-      self.text.pack(side = "right", fill = Y)
-      self.scrollbar.config(command = self.text.yview)
-      if len(self.master.history) > 0:
-        for entry in self.master.history:
-          monStr  = str(entry["mon"]) if entry["mon"] >= 10 else "0" + str(entry["mon"])
-          dayStr  = str(entry["day"]) if entry["day"] >= 10 else "0" + str(entry["day"])
-          wDayStr = entry["wday"] + " "*(5-len(entry["wday"])) if 5 - len(entry["wday"]) > 0 else entry["wday"]
-          intHr   = int(entry["secSoFar"] // 3600)
-          intMin  = int(entry["secSoFar"] % 3600 // 60)
-          intSec  = int(entry["secSoFar"] % 60)
-          strMin  = str(intMin) if intMin >= 10 else "0" + str(intMin)
-          strSec  = str(intSec) if intSec >= 10 else "0" + str(intSec)
-          earningsStr = "{:.2f}".format(entry["earnings"])
-          earningsStr += " "*(7 - len(earningsStr)) if ((7 - len(earningsStr)) > 0) else earningsStr
+      self._cal = Calendar(self)
+      self._cal.pack()
 
-          inputStr = "{}-{}-{} {}\t{}:{}:{}\t${}\t{:.1f}%\n".format(entry["year"],
-                                                                        monStr,
-                                                                        dayStr,
-                                                                        wDayStr,
-                                                                        intHr,
-                                                                        strMin,
-                                                                        strSec,
-                                                                        earningsStr,
-                                                                        entry["percent"])
-          self.text.insert(END, inputStr)
-      else:
-        self.text.insert(END, "No history recorded.")
+      self._dateLabel = Label(self)
+      self._dateLabel.pack()
+      self._timeLabel = Label(self)
+      self._timeLabel.pack()
 
-      self.text.config(state = DISABLED)
+      for entry in self.master.history:
+        self._cal.add_day_action(year = entry["year"],
+                                 month = entry["mon"] - 1,
+                                 day = entry["day"],
+                                 action = self._show_day)
+
+    def _show_day(self, year, month, day):
+      print("Entry {}-{}-{} showing.".format(year, month +1, day))
+      entry = None
+      for item in self.master.history:
+        if item["year"] == year and item["mon"] == month + 1 and item["day"] == day:
+          entry = item
+          break
+      if entry == None:
+        return
+
+      monStr  = str(entry["mon"]) if entry["mon"] >= 10 else "0" + str(entry["mon"])
+      dayStr  = str(entry["day"]) if entry["day"] >= 10 else "0" + str(entry["day"])
+      wDayStr = entry["wday"] + " "*(5-len(entry["wday"])) if 5 - len(entry["wday"]) > 0 else entry["wday"]
+      intHr   = int(entry["secSoFar"] // 3600)
+      intMin  = int(entry["secSoFar"] % 3600 // 60)
+      intSec  = int(entry["secSoFar"] % 60)
+      strMin  = str(intMin) if intMin >= 10 else "0" + str(intMin)
+      strSec  = str(intSec) if intSec >= 10 else "0" + str(intSec)
+      earningsStr = "{:.2f}".format(entry["earnings"])
+      earningsStr += " "*(7 - len(earningsStr)) if ((7 - len(earningsStr)) > 0) else earningsStr
+
+      self._dateLabel.config(text="{}-{}-{}\t{}".format(entry["year"],monStr,dayStr, wDayStr))
+      self._timeLabel.config(text="{}:{}:{}\t${}\t{:.1f}%".format(intHr,
+                                                                  strMin,
+                                                                  strSec,
+                                                                  earningsStr,
+                                                                  entry["percent"]))
 
     def destroy(self):
       self.master.historyOpen = False
       super().destroy()
+  # NewHistoryWindow
+  ################
 
 
   ########
@@ -641,7 +650,7 @@ Mateo Zlatar\
     self.history = self.load_history()
     for entry in self.history:
       entry["percent"] = (entry["percent"] * 100 // 1) / 100
-
+    self._lastTime = clock()
     self.update()
     del self.setupWindow
 
@@ -664,6 +673,7 @@ Mateo Zlatar\
       self.pauseButton.config(image = self.pauseButton.pauseImage)
       self.pauseButtonVar.set("Pause")
       self.paused = False
+      self._lastTime = clock()
       self.update()
     else:
       try:
@@ -677,7 +687,9 @@ Mateo Zlatar\
   ########
   # update: updates secSoFar and GUI elements
   def update(self):
-    self.secSoFar += MoneyTimer.AFTER_TIME_SEC
+    now = clock()
+    self.secSoFar += now - self._lastTime
+    self._lastTime = now
 
     # calculate hour, min, sec, and earnings; put times in strings
     displayHr  = int(self.secSoFar // 3600)
